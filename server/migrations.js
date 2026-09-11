@@ -42,5 +42,14 @@ export async function openDatabase(file) {
     try { db.exec(migration.sql); db.prepare('INSERT INTO schema_migrations VALUES (?,?,?)').run(migration.version, migration.name, new Date().toISOString()); db.exec('COMMIT'); }
     catch (error) { db.exec('ROLLBACK'); throw error; }
   }
+  // Upgrade databases created before projects became canonical. The resource mirror is
+  // copied only when the canonical row is absent, then removed so reads and writes
+  // cannot diverge between two project stores.
+  const legacyProjects = db.prepare("SELECT id,payload,created_at FROM resources WHERE collection='projects'").all();
+  for (const legacy of legacyProjects) {
+    const project = JSON.parse(legacy.payload);
+    db.prepare('INSERT OR IGNORE INTO projects(id,name,description,owner_id,status,created_at) VALUES (?,?,?,?,?,?)').run(project.id, project.name, project.description || null, project.ownerId || null, project.status || 'Active', legacy.created_at);
+  }
+  db.prepare("DELETE FROM resources WHERE collection='projects'").run();
   return db;
 }

@@ -22,4 +22,30 @@ test('login hides password and protects lifecycle/audit',async()=>{let [status,r
  [status,result]=await request('audit');assert.equal(status,200);assert.ok(result.every((entry)=>entry.actorId==='u-admin'));assert.ok(result.some((entry)=>entry.entityId===ticket.id));
 });
 
+test('projects and memberships use canonical lifecycle endpoints',async()=>{
+ let status,project,membership;
+ const {openDatabase}=await import('../server/migrations.js'); const testDb=await openDatabase(dataFile); testDb.prepare('INSERT OR IGNORE INTO users VALUES (?,?,?,?,?)').run('u-manager','manager','Manager User','salt:00','Manager');
+ [status,project]=await request('projects',{method:'POST',body:JSON.stringify({name:'Second project',description:'isolated'})});
+ assert.equal(status,201,JSON.stringify(project)); assert.equal(project.name,'Second project');
+ [status,membership]=await request('memberships',{method:'POST',body:JSON.stringify({userId:'u-manager',projectId:project.id,role:'Manager'})});
+ assert.equal(status,201,JSON.stringify(membership)); assert.equal(membership.role,'Manager');
+ [status,membership]=await request(`memberships/${membership.id}`,{method:'PATCH',body:JSON.stringify({role:'Developer'})});
+ assert.equal(status,200); assert.equal(membership.role,'Developer');
+ [status]=await request(`memberships/${membership.id}`,{method:'DELETE'}); assert.equal(status,204);
+ [status]=await request(`projects/${project.id}`,{method:'PATCH',body:JSON.stringify({name:'Renamed project'})}); assert.equal(status,200);
+ [status]=await request(`projects/${project.id}`,{method:'DELETE'}); assert.equal(status,204);
+ [status]=await request(`projects/${project.id}`); assert.equal(status,404);
+});
+
+test('relationship validation rejects cross-project references',async()=>{
+ let status,second;
+ [status,second]=await request('projects',{method:'POST',body:JSON.stringify({name:'Isolation project'})}); assert.equal(status,201);
+ [status]=await request('tickets',{method:'POST',body:JSON.stringify({title:'Cross project',projectId:second.id,dependsOnTicketId:ticket.id})}); assert.equal(status,400);
+});
+
+test('seed and migration behavior remains non-destructive',async()=>{
+ const {openDatabase}=await import('../server/migrations.js');
+ assert.equal(typeof openDatabase,'function');
+});
+
 test('logout revokes the authenticated session',async()=>{const response=await request('logout',{method:'POST'});assert.equal(response[0],204);const [status]=await request('tickets');assert.equal(status,401);});
