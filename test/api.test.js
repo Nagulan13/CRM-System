@@ -143,3 +143,19 @@ test('GET-by-ID distinguishes foreign existing records from missing records',asy
 });
 
 test('logout revokes the authenticated session',async()=>{const response=await request('logout',{method:'POST'});assert.equal(response[0],204);const [status]=await request('tickets');assert.equal(status,401);});
+
+test('runtime SPA fallback, binary attachments, reports, and QA execution are functional',async()=>{
+  let status,result;
+  [status,result]=await request('login',{method:'POST',body:JSON.stringify({username:'admin',password:'test-password'})}); assert.equal(status,200); token=result.token;
+  const deep=await fetch('http://localhost:3011/tickets'); assert.equal(deep.status,200); assert.match(await deep.text(),/Northstar CRM/);
+  const traversal=await fetch('http://localhost:3011/%2e%2e/server/index.js'); assert.ok([400,404].includes(traversal.status));
+  const apiMissing=await request('tickets/no-such-ticket'); assert.equal(apiMissing[0],404);
+  [status,result]=await request('attachments/upload',{method:'POST',body:JSON.stringify({ticketId:ticket.id,name:'evidence.txt',mimeType:'text/plain',content:Buffer.from('integrity-check').toString('base64')})}); assert.equal(status,201,JSON.stringify(result)); assert.equal(result.size,15); assert.match(result.sha256,/^[a-f0-9]{64}$/);
+  const download=await fetch(`http://localhost:3011/api/attachments/${result.id}/content`,{headers:{authorization:`Bearer ${token}`}}); assert.equal(download.status,200); assert.equal(await download.text(),'integrity-check');
+  [status]=await request('attachments/upload',{method:'POST',body:JSON.stringify({ticketId:ticket.id,name:'bad.exe',mimeType:'application/x-msdownload',content:'Yg=='})}); assert.equal(status,415);
+  [status,result]=await request('reports',{method:'POST',body:JSON.stringify({name:'Ticket report',projectId:'p-demo',definition:JSON.stringify({collection:'tickets',columns:['key','title'],filters:{id:ticket.id}})})}); assert.equal(status,201,JSON.stringify(result));
+  const report=await fetch(`http://localhost:3011/api/reports/${result.id}/run?format=csv`,{method:'POST',headers:{authorization:`Bearer ${token}`}}); assert.equal(report.status,200); assert.match(await report.text(),/"key","title"/);
+  [status,result]=await request('qaCases',{method:'POST',body:JSON.stringify({ticketId:ticket.id,name:'runtime QA',expected:'works'})}); assert.equal(status,201,JSON.stringify(result));
+  [status,result]=await request(`qaCases/${result.id}/execute`,{method:'POST',body:JSON.stringify({outcome:'Passed',evidence:'runtime evidence',input:'runtime input'})}); assert.equal(status,201,JSON.stringify(result)); assert.equal(result.status,'Passed');
+  [status]=await request(`qaCases/${result.qaCaseId}/execute`,{method:'POST',body:JSON.stringify({outcome:'Passed'})}); assert.equal(status,422);
+});
