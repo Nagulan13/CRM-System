@@ -127,4 +127,19 @@ test('generic resource authorization is enforced against existing records',async
  [status]=await request(`tickets/${qaTicket.id}`); assert.equal(status,200);
 });
 
+test('GET-by-ID distinguishes foreign existing records from missing records',async()=>{
+ const {openDatabase}=await import('../server/migrations.js'); const db=await openDatabase(dataFile);
+ const foreign=db.prepare("SELECT id FROM projects WHERE name='Foreign scope'").get();
+ const foreignTicket=db.prepare("SELECT id FROM resources WHERE collection='tickets' AND json_extract(payload,'$.title')='Foreign target'").get();
+ const login=async(username)=>{const result=await request('login',{method:'POST',body:JSON.stringify({username,password:'test-password'})});assert.equal(result[0],200);token=result[1].token};
+ await login('developer');
+ let status,payload;
+ [status,payload]=await request(`projects/${foreign.id}`); assert.equal(status,403); assert.deepEqual(payload,{error:'Forbidden'});
+ [status,payload]=await request('projects/project-does-not-exist'); assert.equal(status,404); assert.deepEqual(payload,{error:'Not found'});
+ [status,payload]=await request(`tickets/${foreignTicket.id}`); assert.equal(status,403); assert.deepEqual(payload,{error:'Forbidden'});
+ [status,payload]=await request('tickets/ticket-does-not-exist'); assert.equal(status,404); assert.deepEqual(payload,{error:'Not found'});
+ [status,payload]=await request('memberships/u-admin:p-demo'); assert.equal(status,403); assert.deepEqual(payload,{error:'Forbidden'});
+ [status,payload]=await request('memberships/missing-user:missing-project'); assert.equal(status,404); assert.deepEqual(payload,{error:'Not found'});
+});
+
 test('logout revokes the authenticated session',async()=>{const response=await request('logout',{method:'POST'});assert.equal(response[0],204);const [status]=await request('tickets');assert.equal(status,401);});
