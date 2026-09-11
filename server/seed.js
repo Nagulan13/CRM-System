@@ -1,1 +1,12 @@
-import { readFile,writeFile } from 'node:fs/promises';import {randomUUID} from 'node:crypto';const p=new URL('../data/crm.json',import.meta.url);const d=JSON.parse(await readFile(p));const now=new Date().toISOString();d.projects=[{id:'p-demo',name:'Internal CRM MVP',description:'Demo delivery workspace',owner:'Admin User',status:'Active',createdAt:now}];d.tickets=[{id:'t-demo',title:'Create intake workflow',description:'Configure request intake and lifecycle tracking.',project:'Internal CRM MVP',projectId:'p-demo',priority:'High',status:'Develop',assignee:'Admin User',createdAt:now,updatedAt:now,history:[{status:'Request',at:now,by:'u-admin'},{status:'Analyse',at:now,by:'u-admin'},{status:'Develop',at:now,by:'u-admin'}]}];d.tasks=[{id:randomUUID(),title:'Define acceptance criteria',ticketId:'t-demo',status:'In Progress',createdAt:now}];d.comments=[{id:randomUUID(),ticketId:'t-demo',author:'Admin User',body:'Demo ticket seeded for local evaluation.',createdAt:now}];await writeFile(p,JSON.stringify(d,null,2));console.log('Seeded demo data. Login: admin / Admin123!');
+import { readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+const file = process.env.CRM_DATA_FILE || new URL('../data/crm.json', import.meta.url);
+const data = JSON.parse(await readFile(file));
+const now = new Date().toISOString();
+data.projects = [{ id:'p-demo', name:'Internal CRM MVP', description:'Demo delivery workspace', ownerId:'u-admin', status:'Active', createdAt:now }];
+data.tickets = [{ id:'t-demo', key:'CRM-00001', title:'Create intake workflow', description:'Configure request intake and lifecycle tracking.', projectId:'p-demo', priority:'High', status:'Develop', assigneeId:'u-admin', createdAt:now, updatedAt:now, history:[{status:'Request',at:now,actorId:'u-admin'},{status:'Analyse',at:now,actorId:'u-admin'},{status:'Develop',at:now,actorId:'u-admin'}] }];
+data.counters = { ticket:1 };
+data.tasks = [{ id:randomUUID(), title:'Define acceptance criteria', ticketId:'t-demo', status:'In Progress', createdAt:now }];
+data.comments = [{ id:randomUUID(), ticketId:'t-demo', authorId:'u-admin', body:'Demo ticket seeded for local evaluation.', createdAt:now }];
+await writeFile(file, JSON.stringify(data, null, 2));
+console.log('Seeded demo data. Set DEMO_PASSWORD in the environment before first start to choose local credentials.');

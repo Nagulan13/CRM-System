@@ -1,1 +1,17 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {spawn} from 'node:child_process';let proc;test.before(async()=>{proc=spawn(process.execPath,['server/index.js'],{env:{...process.env,PORT:'3011'}});await new Promise(r=>setTimeout(r,250))});test.after(()=>proc.kill());const api=(p,o)=>fetch('http://localhost:3011/api/'+p,{headers:{'content-type':'application/json'},...o}).then(async r=>[r.status,await r.json()]);test('login and lifecycle validation',async()=>{let [s,u]=await api('login',{method:'POST',body:JSON.stringify({username:'admin',password:'Admin123!'})});assert.equal(s,200);let [cs,t]=await api('tickets',{method:'POST',body:JSON.stringify({title:'Test',status:'Request'})});assert.equal(cs,201);let [bad]=await api('tickets/'+t.id,{method:'PATCH',body:JSON.stringify({status:'Close'})});assert.equal(bad,422);let [good,x]=await api('tickets/'+t.id,{method:'PATCH',body:JSON.stringify({status:'Analyse'})});assert.equal(good,200);assert.equal(x.status,'Analyse')});
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+let proc; let dataFile; let token; let ticket;
+const request = (pathName, options = {}) => fetch(`http://localhost:3011/api/${pathName}`, { headers:{'content-type':'application/json', ...(token ? {authorization:`Bearer ${token}`} : {})}, ...options }).then(async response => [response.status, response.status === 204 ? null : response.json()]).then(async ([status, payload]) => [status, await payload]);
+test.before(async () => { const dir=await mkdtemp(path.join(tmpdir(),'crm-test-')); dataFile=path.join(dir,'crm.json'); proc=spawn(process.execPath,['server/index.js'],{env:{...process.env,PORT:'3011',CRM_DATA_FILE:dataFile,DEMO_PASSWORD:'test-password'}}); await new Promise((resolve,reject)=>{proc.once('error',reject); setTimeout(resolve,300);}); });
+test.after(async () => { proc.kill(); if (dataFile) await rm(path.dirname(dataFile),{recursive:true,force:true}); });
+test('unauthenticated collections are rejected',async()=>{const [status]=await request('tickets');assert.equal(status,401);});
+test('login hides password and protects lifecycle/audit',async()=>{let [status,result]=await request('login',{method:'POST',body:JSON.stringify({username:'admin',password:'test-password'})});assert.equal(status,200);assert.ok(result.token);assert.equal(result.user.passwordHash,undefined);token=result.token;
+ [status,ticket]=await request('tickets',{method:'POST',body:JSON.stringify({title:'Test',projectId:'p-demo'})});assert.equal(status,201);assert.match(ticket.key,/^CRM-\d{5}$/);
+ [status]=await request(`tickets/${ticket.id}`,{method:'PATCH',body:JSON.stringify({status:'Close'})});assert.equal(status,422);
+ [status]=await request(`tickets/${ticket.id}`,{method:'PATCH',body:JSON.stringify({status:'Analyse'})});assert.equal(status,200);
+ [status]=await request('audit',{method:'DELETE'});assert.equal(status,405);
+});

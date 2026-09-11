@@ -1,30 +1,39 @@
 # Internal CRM System MVP
 
-Runnable local MVP grounded in **Internal CRM System SRS v2**. It provides a coherent authenticated dashboard, JSON-file persistence, project/ticket/task/comment/audit collections, RBAC-ready user records, and API-enforced ticket lifecycle transitions.
+Remediation build for PR #1. The app is a Node.js HTTP API with a static frontend and local persistence.
 
-## Architecture and phased plan
-- **Phase 1 (this MVP):** Node.js HTTP API, static accessible frontend, local username/password login, JSON persistence, ticket lifecycle validation, dashboard, seed data, audit history, configurable SLA metadata.
-- **Phase 2:** relational database migration (SQLite/PostgreSQL), full project/member RBAC, requirements/clarifications/approvals, attachment storage, QA/UAT/release entities, reports/CSV export and pagination.
-- **Phase 3:** production hardening: CSRF/session cookies, password hashing migration, object storage, observability, accessibility/performance review, deployment automation.
+## Setup
 
-The app deliberately does **not** claim email or Google Calendar integration. GitHub/Drive/Sheets are deferred and may be represented as references/configuration points only.
-
-## Local setup
 Requirements: Node.js 20+.
 
 ```bash
-node server/index.js             # http://localhost:3000
-# in another terminal, once:
-node server/seed.js               # creates demo project/ticket/task/comment
-node --test                       # API smoke tests
+export DEMO_PASSWORD='choose-a-local-password'
+export CRM_DATA_FILE="$PWD/data/crm.json" # optional; defaults to data/crm.json
+npm run seed                         # only after the first server start creates the file
+npm start                            # http://localhost:3000
+npm test
+npm run build
 ```
 
-Environment variables: `PORT` (default `3000`), `CRM_DATA_FILE` is reserved for a future database adapter. Data is stored in `data/crm.json`; do not use demo credentials outside local development.
+On first start, the admin account is created as `admin` with the password from `DEMO_PASSWORD`. If `DEMO_PASSWORD` is not set, a random password is generated and is not printed or stored in source/UI; reset the local data file and set the variable to choose credentials. Never commit `data/crm.json` or use demo credentials outside local development.
 
-Demo credentials: **admin / Admin123!**. API: `POST /api/login`, `GET /api/dashboard`, `GET|POST /api/projects`, `GET|POST /api/tickets`, `PATCH /api/tickets/:id`, plus tasks/comments/notifications/audit/attachments collections. Frontend: `http://localhost:3000`.
+## Implemented remediation
 
-### Lifecycle and SLA
-The API enforces Request → Analyse → Clarify → Approve → Assign → Develop → Review → QA → UAT → Deploy → Verify → Resolve → Close, with On Hold, Blocked, Rejected, Cancelled, and Reopened. Invalid transitions return HTTP 422. SLA defaults are configurable metadata and explicitly **pending management confirmation**: Critical 1h/4h, High 4h/1 business day, Medium 1 business day/3 business days, Low 2 business days/5 business days.
+- Fixed frontend syntax error; `npm run build` performs JavaScript syntax checks for frontend/server/seed.
+- Bearer-token sessions, password hashing with Node `scrypt`, password-free user responses, logout, and protected API routes.
+- Role and project access checks, protected fields, per-resource required-field validation, writable-field restrictions, and human-readable ticket IDs (`CRM-00001`).
+- Append-only audit entries with authenticated actor identity; audit deletion is rejected.
+- Ticket lifecycle transition guards, blocker/reopen/closure evidence requirements, status/priority validation, and history.
+- Relational-style resource collections for departments, memberships, mentions, dependencies, clarifications, decisions, approvals, code reviews, QA/UAT, releases/deployments, meetings/actions, notifications, saved views, reports, attachments metadata, and tasks/comments.
+- Dashboard metrics, ticket search/filter UI, session-aware frontend, and secure text escaping.
 
-## Known limitations
-This is an intentionally coherent MVP: JSON storage is single-process and not suitable for production concurrency; UI currently emphasizes dashboard/ticket flow over deep entity screens; authentication is local/demo only; attachment binaries, full RBAC enforcement, workflow approvals, QA/UAT/release detail screens, exports, and external integrations remain Phase 2/3.
+## Scope and limitations
+
+The approved MVP resource surface is represented in the API and is available through generic CRUD routes, but this repository does not yet contain dedicated UI screens/workflows for every resource (for example QA evidence, UAT, release rollback, reports/exports, or administration). Attachment binaries are not accepted by the current API; only validated metadata is supported. SLA values are metadata and not yet a business-calendar monitoring engine.
+
+SQLite replacement was not feasible without adding a dependency in this constrained workspace; persistence remains JSON-file based and is single-process. This is explicitly documented rather than claimed complete. The committed mutable runtime fixture was removed; use a temporary `CRM_DATA_FILE` for tests/evaluation.
+
+## Actual verification
+
+- `npm test`: automated authentication, password non-disclosure, lifecycle validation, human-readable IDs, and append-only audit tests pass.
+- `npm run build`: syntax checks for all JavaScript entry points pass.
