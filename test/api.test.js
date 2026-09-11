@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomBytes, scryptSync } from 'node:crypto';
@@ -143,6 +143,23 @@ test('GET-by-ID distinguishes foreign existing records from missing records',asy
 });
 
 test('logout revokes the authenticated session',async()=>{const response=await request('logout',{method:'POST'});assert.equal(response[0],204);const [status]=await request('tickets');assert.equal(status,401);});
+
+test('forced audit failure rolls back attachment metadata and payload',async()=>{
+  const dir=await mkdtemp(path.join(tmpdir(),'crm-audit-failure-')); const file=path.join(dir,'crm.sqlite'); const attachmentDir=path.join(dir,'attachments');
+  const failing=spawn(process.execPath,['server/index.js'],{env:{...process.env,PORT:'3013',CRM_DATA_FILE:file,CRM_ATTACHMENT_DIR:attachmentDir,DEMO_PASSWORD:'test-password',CRM_FORCE_AUDIT_FAILURE:'1'}});
+  try {
+    await new Promise((resolve,reject)=>{failing.once('error',reject);const poll=async()=>{try{await fetch('http://localhost:3013/api/tickets');resolve()}catch{if(failing.exitCode!==null)reject(Error('forced-failure server exited'));else setTimeout(poll,50)}};poll()});
+    const call=(name,options={})=>fetch(`http://localhost:3013/api/${name}`,{headers:{'content-type':'application/json',...options.headers||{}},...options}).then(async response=>[response.status,response.status===204?null:response.json()]).then(async([status,payload])=>[status,await payload]);
+    let [status,login]=await call('login',{method:'POST',body:JSON.stringify({username:'admin',password:'test-password'})}); assert.equal(status,200);
+    const auth={authorization:`Bearer ${login.token}`};
+    [status,login]=await call('tickets',{method:'POST',headers:auth,body:JSON.stringify({title:'Forced audit target',projectId:'p-demo'})}); assert.equal(status,201);
+    const ticketId=login.id;
+    [status]=await call('attachments/upload',{method:'POST',headers:auth,body:JSON.stringify({ticketId,name:'forced.txt',mimeType:'text/plain',content:Buffer.from('rollback').toString('base64')})}); assert.equal(status,400);
+    const [attachmentStatus,attachments]=await call('attachments',{headers:auth}); assert.equal(attachmentStatus,200); assert.deepEqual(attachments,[]);
+    const [auditStatus,auditEntries]=await call('audit',{headers:auth}); assert.equal(auditStatus,200); assert.equal(auditEntries.some((entry)=>entry.entity==='attachment'),false);
+    assert.deepEqual(await readdir(attachmentDir),[]);
+  } finally { failing.kill(); await rm(dir,{recursive:true,force:true}); }
+});
 
 test('runtime SPA fallback, binary attachments, reports, and QA execution are functional',async()=>{
   let status,result;
