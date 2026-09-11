@@ -1,0 +1,114 @@
+{
+  "users": [
+    {
+      "id": "u-admin",
+      "username": "admin",
+      "name": "Admin User",
+      "password": "3eb3fe66b31e3b4d10fa70b5cad49c7112294af6ae4e476a1c405155d45aa121",
+      "role": "Admin",
+      "projectIds": []
+    }
+  ],
+  "projects": [
+    {
+      "id": "p-demo",
+      "name": "Internal CRM MVP",
+      "description": "Demo delivery workspace",
+      "owner": "Admin User",
+      "status": "Active",
+      "createdAt": "2026-09-11T08:42:42.888Z"
+    }
+  ],
+  "tickets": [
+    {
+      "id": "t-demo",
+      "title": "Create intake workflow",
+      "description": "Configure request intake and lifecycle tracking.",
+      "project": "Internal CRM MVP",
+      "projectId": "p-demo",
+      "priority": "High",
+      "status": "Develop",
+      "assignee": "Admin User",
+      "createdAt": "2026-09-11T08:42:42.888Z",
+      "updatedAt": "2026-09-11T08:42:42.888Z",
+      "history": [
+        {
+          "status": "Request",
+          "at": "2026-09-11T08:42:42.888Z",
+          "by": "u-admin"
+        },
+        {
+          "status": "Analyse",
+          "at": "2026-09-11T08:42:42.888Z",
+          "by": "u-admin"
+        },
+        {
+          "status": "Develop",
+          "at": "2026-09-11T08:42:42.888Z",
+          "by": "u-admin"
+        }
+      ]
+    },
+    {
+      "id": "47c9c845-4ad6-4580-babc-c9c2d6745e00",
+      "createdAt": "2026-09-11T08:42:43.340Z",
+      "updatedAt": "2026-09-11T08:42:43.351Z",
+      "title": "Test",
+      "status": "Analyse",
+      "priority": "Medium",
+      "history": [
+        {
+          "status": "Request",
+          "at": "2026-09-11T08:42:43.340Z",
+          "by": "u-admin"
+        },
+        {
+          "status": "Analyse",
+          "at": "2026-09-11T08:42:43.351Z",
+          "by": "u-admin"
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "7a1af73a-1c86-4626-85c7-78c5b1701694",
+      "title": "Define acceptance criteria",
+      "ticketId": "t-demo",
+      "status": "In Progress",
+      "createdAt": "2026-09-11T08:42:42.888Z"
+    }
+  ],
+  "comments": [
+    {
+      "id": "71c99482-34f6-4252-9922-14d54250a21a",
+      "ticketId": "t-demo",
+      "author": "Admin User",
+      "body": "Demo ticket seeded for local evaluation.",
+      "createdAt": "2026-09-11T08:42:42.888Z"
+    }
+  ],
+  "notifications": [],
+  "audit": [
+    {
+      "id": "27d0fed8-4acf-42cc-b080-ca02cf71a8cd",
+      "entity": "ticket",
+      "entityId": "47c9c845-4ad6-4580-babc-c9c2d6745e00",
+      "action": "created",
+      "at": "2026-09-11T08:42:43.340Z",
+      "by": "u-admin"
+    },
+    {
+      "id": "d5c9bbe4-9717-4087-9bed-01b9a1aca59e",
+      "entity": "ticket",
+      "entityId": "47c9c845-4ad6-4580-babc-c9c2d6745e00",
+      "action": "updated",
+      "changes": {
+        "status": "Analyse"
+      },
+      "at": "2026-09-11T08:42:43.351Z",
+      "by": "u-admin"
+    }
+  ],
+  "attachments": []
+}
