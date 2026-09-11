@@ -1,0 +1,1 @@
+{"name":"internal-crm-mvp","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node server/index.js","dev":"node --watch server/index.js","test":"node --test","build":"node --check server/index.js && node --check server/seed.js && node --check public/app.js","smoke":"npm run build","seed":"node server/seed.js"},"engines":{"node":">=20"}}
