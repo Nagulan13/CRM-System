@@ -14,4 +14,12 @@ test('login hides password and protects lifecycle/audit',async()=>{let [status,r
  [status]=await request(`tickets/${ticket.id}`,{method:'PATCH',body:JSON.stringify({status:'Close'})});assert.equal(status,422);
  [status]=await request(`tickets/${ticket.id}`,{method:'PATCH',body:JSON.stringify({status:'Analyse'})});assert.equal(status,200);
  [status]=await request('audit',{method:'DELETE'});assert.equal(status,405);
+ [status]=await request('audit',{method:'POST',body:JSON.stringify({actorId:'attacker',action:'tampered'})});assert.equal(status,405);
+ [status]=await request('audit',{method:'PATCH',body:JSON.stringify({actorId:'attacker'})});assert.equal(status,405);
+ [status]=await request(`tickets/${ticket.id}`,{method:'PATCH',body:JSON.stringify({passwordHash:'injected'})});assert.equal(status,400);
+ [status]=await request(`tickets/${ticket.id}`,{method:'PATCH',body:JSON.stringify({unknownField:'injected'})});assert.equal(status,400);
+ [status]=await request('tickets',{method:'POST',body:JSON.stringify({title:'Missing project'})});assert.equal(status,400);
+ [status,result]=await request('audit');assert.equal(status,200);assert.ok(result.every((entry)=>entry.actorId==='u-admin'));assert.ok(result.some((entry)=>entry.entityId===ticket.id));
 });
+
+test('logout revokes the authenticated session',async()=>{const response=await request('logout',{method:'POST'});assert.equal(response[0],204);const [status]=await request('tickets');assert.equal(status,401);});

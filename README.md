@@ -1,39 +1,35 @@
 # Internal CRM System MVP
 
-Remediation build for PR #1. The app is a Node.js HTTP API with a static frontend and local persistence.
+Remediation build for PR #1 on `feature/crm-mvp`. Node.js 20+ HTTP API, static UAT frontend, and SQLite persistence using the built-in `node:sqlite` runtime.
 
-## Setup
-
-Requirements: Node.js 20+.
+## Local setup
 
 ```bash
 export DEMO_PASSWORD='choose-a-local-password'
-export CRM_DATA_FILE="$PWD/data/crm.json" # optional; defaults to data/crm.json
-npm run seed                         # only after the first server start creates the file
-npm start                            # http://localhost:3000
+export CRM_DATA_FILE="$PWD/data/crm.sqlite" # optional; defaults to data/crm.sqlite
+npm start
+npm run seed                         # after the first server start, optional demo data
 npm test
 npm run build
 ```
 
-On first start, the admin account is created as `admin` with the password from `DEMO_PASSWORD`. If `DEMO_PASSWORD` is not set, a random password is generated and is not printed or stored in source/UI; reset the local data file and set the variable to choose credentials. Never commit `data/crm.json` or use demo credentials outside local development.
+The first server start creates the SQLite schema and an `admin` user. The password is taken from `DEMO_PASSWORD`; otherwise a random local password is generated. Never commit the database or use demo credentials outside local development.
 
-## Implemented remediation
+## Security and data integrity
 
-- Fixed frontend syntax error; `npm run build` performs JavaScript syntax checks for frontend/server/seed.
-- Bearer-token sessions, password hashing with Node `scrypt`, password-free user responses, logout, and protected API routes.
-- Role and project access checks, protected fields, per-resource required-field validation, writable-field restrictions, and human-readable ticket IDs (`CRM-00001`).
-- Append-only audit entries with authenticated actor identity; audit deletion is rejected.
-- Ticket lifecycle transition guards, blocker/reopen/closure evidence requirements, status/priority validation, and history.
-- Relational-style resource collections for departments, memberships, mentions, dependencies, clarifications, decisions, approvals, code reviews, QA/UAT, releases/deployments, meetings/actions, notifications, saved views, reports, attachments metadata, and tasks/comments.
-- Dashboard metrics, ticket search/filter UI, session-aware frontend, and secure text escaping.
+- Bearer sessions, password hashing with `scrypt`, logout revocation, and password-free user responses.
+- Audit is strictly append-only: external POST/PATCH/DELETE operations are rejected; actor identity is always taken from the authenticated session; reads are restricted to Admin and Manager.
+- Per-resource allowlists and schemas reject unknown/protected fields, including password injection, and validate required fields, enums, lifecycle transitions, and relationship identifiers.
+- Role/operation matrix: Admin has global access; Manager is scoped to memberships; Developer/QA may write scoped project data; Viewer is read-only; deletes are Admin/Manager only. Users with no project memberships are denied project-scoped access.
+- SQLite WAL mode, foreign keys, transactional single-file persistence, and reproducible schema creation avoid JSON lost-update behavior across restarts.
 
-## Scope and limitations
+## MVP workflows
 
-The approved MVP resource surface is represented in the API and is available through generic CRUD routes, but this repository does not yet contain dedicated UI screens/workflows for every resource (for example QA evidence, UAT, release rollback, reports/exports, or administration). Attachment binaries are not accepted by the current API; only validated metadata is supported. SLA values are metadata and not yet a business-calendar monitoring engine.
+The frontend provides UAT-oriented entry points for QA/UAT evidence, approvals/clarifications, releases/deployments, reports, administration, notifications, attachments, dependencies, and meetings/actions, alongside the delivery queue. The API exposes dedicated protected resources for each workflow.
 
-SQLite replacement was not feasible without adding a dependency in this constrained workspace; persistence remains JSON-file based and is single-process. This is explicitly documented rather than claimed complete. The committed mutable runtime fixture was removed; use a temporary `CRM_DATA_FILE` for tests/evaluation.
+## Verification
 
-## Actual verification
+- `npm test` — authentication/logout, audit tamper rejection, actor integrity, protected/unknown fields, lifecycle evidence, and required relationship validation.
+- `npm run build` — syntax validation for server, seed, and frontend.
 
-- `npm test`: automated authentication, password non-disclosure, lifecycle validation, human-readable IDs, and append-only audit tests pass.
-- `npm run build`: syntax checks for all JavaScript entry points pass.
+Known follow-up: the static frontend module cards currently route users to API-backed UAT configuration guidance rather than full multi-step forms for every resource. The protected API, persistence, and regression coverage are implemented; full visual workflow completion remains a discrete QA/UAT task.
